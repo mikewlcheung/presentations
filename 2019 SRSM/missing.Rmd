@@ -1,0 +1,60 @@
+---
+title: "Handling Missing Covariates in Mixed-Effects Meta-Analysis with Full-Information Maximum Likelihood"
+author: "Mike W.-L. Cheung"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  html_document:
+    keep_md: yes
+    self_contained: yes
+    theme: united
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+# MCAR
+```{r}
+library(metaSEM)
+
+## Select part of the data
+Tenenbaum02 <- Tenenbaum02[, c("r", "v", "Offspring_age", "Year_pub")]
+
+## Set seed for reproducibility
+set.seed(1234567)
+
+## Set 40% of covariate as missing
+missing_per <- 0.4
+
+## MCAR
+index <- round(nrow(Tenenbaum02)*missing_per)
+index <- rep(c(TRUE, FALSE), times=c(index, nrow(Tenenbaum02)-index))
+index <- sample(index)
+my.MCAR <- Tenenbaum02
+my.MCAR[index, "Offspring_age"] <- NA
+## Center the covariate
+my.MCAR$Offspring_age <- scale(my.MCAR$Offspring_age, scale=FALSE)
+my.MCAR
+
+## y: effect size
+## v: sampling variance
+## x: covariate
+fit.MCAR <- metaFIML(y=r, v=v, x=Offspring_age, data=my.MCAR)
+summary(fit.MCAR)
+```
+
+# MAR
+```{r}
+## MAR depending on the Year of Publication
+index <- Tenenbaum02$Year_pub <= quantile(Tenenbaum02$Year_pub, missing_per)
+my.MAR <- Tenenbaum02
+my.MAR[index, "Offspring_age"] <- NA
+my.MAR$Offspring_age <- scale(my.MAR$Offspring_age, scale=FALSE)
+my.MAR$Year_pub <- scale(my.MAR$Year_pub, scale=FALSE)
+my.MAR
+
+## av: auxiliary variable
+fit.MAR <- metaFIML(y=r, v=v, x=Offspring_age, av=Year_pub, data=my.MAR)
+summary(fit.MAR)
+
+sessionInfo()
+```
